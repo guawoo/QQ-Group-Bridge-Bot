@@ -143,12 +143,14 @@ func RemoveFromSquareGroups(groupID int64) error {
 
 func AddToJoinedGroups(info bottypes.GroupInfo) error {
 	objLock.RLock()
-	for _, i := range configOBj.JoinedGroups {
-		if i.GroupID == info.GroupID {
+	if len(configOBj.JoinedGroups) > 0 {
+		for _, i := range configOBj.JoinedGroups {
+			if i.GroupID == info.GroupID {
 
-			objLock.RUnlock()
+				objLock.RUnlock()
 
-			return errors.New("加入了已经加入群，逻辑错误，请检查。")
+				return errors.New("加入了已经加入群，逻辑错误，请检查。")
+			}
 		}
 	}
 	objLock.RUnlock()
@@ -197,6 +199,16 @@ func ListSquareGroups() ([]bottypes.GroupInfo, error) {
 }
 
 func BanUserID(userid int64, owngroup int64) {
+
+	objLock.RLock()
+	for _, val := range configOBj.BanUserID[owngroup] {
+		if val == userid {
+			objLock.RUnlock()
+			return
+		}
+	}
+	objLock.RUnlock()
+
 	objLock.Lock()
 	configOBj.BanUserID[owngroup] = append(configOBj.BanUserID[owngroup], userid)
 	objLock.Unlock()
@@ -219,4 +231,15 @@ func LiftUserID(userid int64, owngroup int64) error {
 	}
 	objLock.RUnlock()
 	return errors.New("无法删除禁言ID。")
+}
+
+func ListBanUserID(groupid int64) ([]int64, error) {
+	if len(configOBj.BanUserID[groupid]) <= 0 {
+		return nil, errors.New("没有任何被禁言的QQ ID。")
+	}
+
+	objLock.RLock()
+	list := configOBj.BanUserID[groupid]
+	objLock.RUnlock()
+	return list, nil
 }

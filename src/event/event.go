@@ -36,7 +36,7 @@ func GetSystemEventType(msg *string) int {
 		return SYSTEM_HELP
 	} else if len(*msg) >= 7 && "#banuid" == (*msg)[:7] {
 		return SYSTEM_BAN_USER_ID
-	} else if len(*msg) >= 8 && "#listban" == (*msg)[:8] {
+	} else if len(*msg) == 8 && "#banlist" == (*msg)[:8] {
 		return SYSTEM_LIST_BAN
 	}
 
@@ -73,6 +73,7 @@ func SystemEventHandle(msg interface{}) {
 		case SYSTEM_BAN_USER_ID:
 			systemEventBanUserID(&groupMsg)
 		case SYSTEM_LIST_BAN:
+			fmt.Println("banlist")
 			systemEventListBan(&groupMsg)
 		}
 
@@ -137,6 +138,7 @@ func systemEventJoinSquare(groupMsg *bottypes.GroupMsg) {
 		groupinfo, err := config.GetGroupInfoFromJoinedGroups(groupMsg.GroupID)
 
 		if err != nil {
+			fmt.Println(err)
 			broadcast.DoAction(func() {
 				broadcast.SendGroupMsg("相关群信息正在同步中，请稍后在试。", groupMsg.GroupID)
 			})
@@ -242,7 +244,23 @@ func systemEventHelp(groupMsg *bottypes.GroupMsg) {
 }
 
 func systemEventListBan(groupMsg *bottypes.GroupMsg) {
+	list, err := config.ListBanUserID(groupMsg.GroupID)
+	if err != nil {
+		broadcast.DoAction(func() {
+			broadcast.SendGroupMsg("没有任何被禁言人QQ ID。", groupMsg.GroupID)
+		})
+		return
+	}
 
+	var buf bytes.Buffer
+	buf.WriteString("被禁言的ID有:\r\n")
+	for _, val := range list {
+		buf.WriteString(strconv.FormatInt(val, 10))
+		buf.WriteString("\r\n")
+	}
+	broadcast.DoAction(func() {
+		broadcast.SendGroupMsg(buf.String(), groupMsg.GroupID)
+	})
 }
 
 func broadCastEvnetSendMsg(groupMsg *bottypes.GroupMsg) {
@@ -269,8 +287,23 @@ func broadCastEvnetSendMsg(groupMsg *bottypes.GroupMsg) {
 			return
 		}
 
+	SqaureListLoop:
 		for _, val := range sqaureList {
 			if val.GroupID != groupMsg.GroupID {
+
+				//处理禁言
+				banidlist, err := config.ListBanUserID(val.GroupID)
+				if err != nil {
+					continue
+				}
+				if len(banidlist) > 0 {
+					for _, id := range banidlist {
+						if id == groupMsg.Sender.UserID {
+							fmt.Println("had a ban id: " + strconv.FormatInt(id, 10))
+							continue SqaureListLoop
+						}
+					}
+				}
 
 				var buf bytes.Buffer
 
