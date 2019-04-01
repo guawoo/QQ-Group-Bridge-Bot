@@ -19,6 +19,7 @@ const (
 	SYSTEM_LIST_SQUARE
 	SYSTEM_HELP
 	SYSTEM_BAN_USER_ID
+	SYSTEM_LIFT_USER_ID
 	SYSTEM_BAN_GROUP_ID
 	SYSTEM_LIST_BAN
 
@@ -36,8 +37,10 @@ func GetSystemEventType(msg *string) int {
 		return SYSTEM_HELP
 	} else if len(*msg) >= 7 && "#banuid" == (*msg)[:7] {
 		return SYSTEM_BAN_USER_ID
-	} else if len(*msg) == 8 && "#banlist" == (*msg)[:8] {
+	} else if len(*msg) >= 8 && "#banlist" == (*msg)[:8] {
 		return SYSTEM_LIST_BAN
+	} else if len(*msg) >= 8 && "#liftuid" == (*msg)[:8] {
+		return SYSTEM_LIFT_USER_ID
 	}
 
 	return -1
@@ -75,6 +78,8 @@ func SystemEventHandle(msg interface{}) {
 		case SYSTEM_LIST_BAN:
 			fmt.Println("banlist")
 			systemEventListBan(&groupMsg)
+		case SYSTEM_LIFT_USER_ID:
+			systemEventLiftUserID(&groupMsg)
 		}
 
 	}
@@ -261,6 +266,19 @@ func systemEventListBan(groupMsg *bottypes.GroupMsg) {
 	broadcast.DoAction(func() {
 		broadcast.SendGroupMsg(buf.String(), groupMsg.GroupID)
 	})
+}
+
+func systemEventLiftUserID(groupMsg *bottypes.GroupMsg) {
+	if groupMsg.Sender.Role == "owner" || groupMsg.Sender.Role == "admin" {
+		fmt.Println("解除屏蔽QQID操作。")
+		id, _ := strconv.ParseInt(
+			strings.Replace(groupMsg.Message[8:], " ", "", -1),
+			10, 64)
+
+		fmt.Printf("解除屏蔽id:%d", id)
+
+		config.LiftUserID(id, groupMsg.GroupID)
+	}
 }
 
 func broadCastEvnetSendMsg(groupMsg *bottypes.GroupMsg) {
